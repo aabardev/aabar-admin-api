@@ -1,7 +1,16 @@
 import Hapi from "@hapi/hapi";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
+import { getAuthorizationUrl, getNewTokens } from "./dbx/dbxHandlers.js";
+import { addCategories } from "./handlers.js";
 
 dotenv.config();
+
+const payloadConfig = {
+  maxBytes: 157286400,
+  output: "data",
+  parse: true,
+  multipart: true,
+};
 
 const init = async () => {
   const cors_allowed_origins = process.env.CORS_ALLOWED_ORIGINS.split(",");
@@ -15,13 +24,39 @@ const init = async () => {
   });
 
   server.route([
-      {
-          method: 'GET',
-          path: '/',
-          handler: () => {
-              return 'Admin Server Running'
-          }
-      }
+    {
+      method: "GET",
+      path: "/",
+      handler: (req, h) => {
+        return "Admin Server Running";
+      },
+    },
+    {
+      method: "POST",
+      path: "/addCategories",
+      config: {
+        handler: async (req, h) => {
+          const res = await addCategories(req, h);
+          return res;
+        },
+        payload: payloadConfig,
+      },
+    },
+    {
+      method: "GET",
+      path: "/getAuthorizationUrl",
+      handler: (req, h) => {
+        return getAuthorizationUrl();
+      },
+    },
+    {
+      method: "POST",
+      path: "/getNewTokens",
+      handler: async (req, h) => {
+        const res = await getNewTokens(req.payload.authorization_code);
+        return res;
+      },
+    },
   ]);
 
   await server.start();
