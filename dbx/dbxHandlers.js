@@ -1,6 +1,8 @@
 import fetch from "node-fetch";
 import fs from "fs";
+import { dateFormatForFilename } from "../utils.js";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const dbx_token_file = process.env.DBX_TOKEN_FILE;
@@ -48,6 +50,39 @@ export const getNewTokens = async (authorizationCode) => {
   }
 };
 
+const getFreshAccessToken = async () => {
+  let accessToken = "";
+  console.log("2. Attempting to refresh access token");
+  try {
+    const grantType = "refresh_token";
+    const tokenJson = JSON.parse(fs.readFileSync(dbx_token_file, "utf8"));
+    const refreshToken = tokenJson.refresh_token;
+    const reqUrl = "https://api.dropbox.com/oauth2/token";
+    const reqOptions = {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `grant_type=${grantType}&refresh_token=${refreshToken}&client_id=${dbx_client_id}&client_secret=${dbx_client_secret}`,
+    };
+    const dbxTokenRes = await (await fetch(reqUrl, reqOptions)).json();
+    console.log(`2a. Refreshed access token: ${JSON.stringify(dbxTokenRes)}`);
+
+    const updatedTokenJson = { ...tokenJson, ...dbxTokenRes };
+    console.log(
+      `2b. \tOriginal Token File: ${JSON.stringify(
+        tokenJson
+      )}\n\tUpdated Token JSON: ${JSON.stringify(updatedTokenJson)}`
+    );
+
+    fs.writeFileSync(dbx_token_file, JSON.stringify(updatedTokenJson));
+    console.log(`2c. Token File Saved`);
+
+    accessToken = updatedTokenJson.access_token;
+  } catch (err) {
+    console.log(err);
+  }
+  return accessToken;
+};
+
 const getValidAccessToken = async () => {
   console.log(`1. Attempting to get VALID access token`);
   try {
@@ -77,35 +112,66 @@ const getValidAccessToken = async () => {
   }
 };
 
-const getFreshAccessToken = async () => {
-  let accessToken = "";
-  console.log("2. Attempting to refresh access token");
+export const uploadFileToDBX = async (name, content) => {
   try {
-    const grantType = "refresh_token";
-    const tokenJson = JSON.parse(fs.readFileSync(dbx_token_file, "utf8"));
-    const refreshToken = tokenJson.refresh_token;
-    const reqUrl = "https://api.dropbox.com/oauth2/token";
-    const reqOptions = {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=${grantType}&refresh_token=${refreshToken}&client_id=${clientId}&client_secret=${clientSecret}`,
-    };
-    const dbxTokenRes = await (await fetch(reqUrl, reqOptions)).json();
-    console.log(`2a. Refreshed access token: ${JSON.stringify(dbxTokenRes)}`);
+    // (1) Get a valid access token
+    const accessToken = await getValidAccessToken();
 
-    const updatedTokenJson = { ...tokenJson, ...dbxTokenRes };
-    console.log(
-      `2b. \tOriginal Token File: ${JSON.stringify(
-        tokenJson
-      )}\n\tUpdated Token JSON: ${JSON.stringify(updatedTokenJson)}`
-    );
+    // (2) Use access token to upload file to dropbox
+    const dbxFilePath = `/${dbx_img_folder_name}/${dateFormatForFilename(
+      new Date()
+    )}_${name}.jpg`;
+    // console.log("uploading", dbxFilePath);
+    const resUpload = await (
+      await fetch("https://content.dropboxapi.com/2/files/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Dropbox-API-Arg": JSON.stringify({
+            path: dbxFilePath,
+            mode: "add",
+            autorename: true,
+            mute: false,
+            strict_conflict: false,
+          }),
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: content,
+      })
+    ).json();
+    // console.log(resUpload);
 
-    fs.writeFileSync(tokenFile, JSON.stringify(updatedTokenJson));
-    console.log(`2c. Token File Saved`);
+    // (3) Get shareable link of uploaded file
+    const resLink = await (
+      await fetch(
+        "https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings",
+        {
+          method: "POST",
 
-    accessToken = updatedTokenJson.access_token;
-  } catch (err) {
-    console.log(err);
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            path: `${resUpload.id}`,
+            settings: {
+              audience: "public",
+              access: "viewer",
+              requested_visibility: "public",
+              allow_download: true,
+            },
+          }),
+        }
+      )
+    ).json();
+    // console.log(resLink);
+
+    const publicUrl = resLink.url.replace("dl=0", "raw=1");
+    // console.log({publicUrl});
+
+    return { status: "success", dbxFilePath, publicUrl };
+  } catch (error) {
+    console.log(error);
+    return { status: "failed", error };
   }
-  return accessToken;
 };

@@ -3,7 +3,7 @@ import * as readline from "readline";
 
 const initTokenFile = () => {
   // (1) Get Authorization URL
-  const authorizationUrl = getAuthorizationUrl();
+  const authorizationUrl = getAuthorizationUrl().auth_url;
   console.log(`Authorization URL: ${authorizationUrl}`);
   console.log(`\tStep 1: Go to Authorization Url`);
   console.log(`\tStep 2: Click "Continue" then "Allow"`);
