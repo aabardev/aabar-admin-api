@@ -1,6 +1,7 @@
 import { uploadFileToDBX } from "./dbx/dbxHandlers.js";
+import { insertNewMenuCategory } from "./db/dbHandlers.js";
 
-export const saveMenuCategoryData = async (data) => {
+export const addNewMenuCategory = async (data) => {
   console.log(data);
 
   // (1) Enrich request data
@@ -8,40 +9,47 @@ export const saveMenuCategoryData = async (data) => {
   // (2.1) Upload the files/images
   // (2.2) Get and modify shareable link
   let eData = { imgs: [] };
-  let keyType = null;
-  let keyName = null;
+  let keySplit = null;
   let res = null;
   let failedUpoads = [];
   for (let key in data) {
-    keyType = key.split("_")[0];
-    keyName = key.split("_")[1];
-
-    switch (keyType) {
+    keySplit = key.split("_"); // keySplit[0] = field type, keySplit[0]
+    switch (keySplit[0]) {
       case "txt":
-        eData[keyName] = data[key];
-        break;
-      case "pimg":
-        res = await uploadFileToDBX(keyName, data[key]);
-        if (res.status === "success") {
-          eData.imgs.push({
-            publicUrl: res.publicUrl,
-            dbxFilePath: res.dbxFilePath,
-            isPrimary: true,
-          });
-        } else {
-          failedUpoads.push(keyName);
-        }
+        eData[keySplit[1]] = data[key];
         break;
       case "img":
-        res = await uploadFileToDBX(keyName, data[key]);
+        let imgProps = {
+          publicUrl: null,
+          dbxFilePath: null,
+          type: null,
+          isPrimary: null,
+        };
+        switch (keySplit[1]) {
+          case "p":
+            imgProps.type = "menu_category";
+            imgProps.isPrimary = true;
+            break;
+          case "pl":
+            imgProps.type = "menu_category_large";
+            imgProps.isPrimary = true;
+            break;
+          case "np":
+            imgProps.type = "menu_category";
+            imgProps.isPrimary = false;
+            break;
+          case "npl":
+            imgProps.type = "menu_category_large";
+            imgProps.isPrimary = false;
+            break;
+        }
+        res = await uploadFileToDBX(keySplit[2], data[key]);
         if (res.status === "success") {
-          eData.imgs.push({
-            publicUrl: res.publicUrl,
-            dbxFilePath: res.dbxFilePath,
-            isPrimary: false,
-          });
+          imgProps.dbxFilePath = res.dbxFilePath;
+          imgProps.publicUrl = res.publicUrl;
+          eData.imgs.push(imgProps);
         } else {
-          failedUpoads.push(keyName);
+          failedUpoads.push(keySplit[2]);
         }
         break;
     }
@@ -52,6 +60,15 @@ export const saveMenuCategoryData = async (data) => {
   console.log(failedUpoads);
 
   // (3) Save enriched data to database
-
-  return data;
+  res = await insertNewMenuCategory(eData);
+  console.log("RES:", res);
+  if (res.status === "success") {
+    return { status: res.status, msg: "Menu Category saved successfully" };
+  } else {
+    return {
+      status: res.status,
+      error: res.error,
+      msg: "Could not save Menu Category",
+    };
+  }
 };
