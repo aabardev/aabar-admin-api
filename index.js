@@ -59,10 +59,10 @@ const init = async () => {
     },
     {
       method: "POST",
-      path: "/editMenuCategory",
+      path: "/saveMenuItem",
       config: {
         handler: async (req, h) => {
-          const res = await handlers.editMenuCategory(req.payload);
+          const res = await handlers.saveMenuItem(req.payload);
           return res;
         },
         payload: payloadConfig,

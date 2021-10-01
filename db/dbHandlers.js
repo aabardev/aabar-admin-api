@@ -79,7 +79,6 @@ export const upsertMenuCategory = async (data) => {
   // const client = await db.pool.connect();
 
   // (1) save menu category data into db
-  let resp = { status: "failed" };
   try {
     let res = null;
     let actionTaken = null;
@@ -119,6 +118,68 @@ export const upsertMenuCategory = async (data) => {
 
     // (2) save image data into db
     if (actionTaken !== "menu_category_deactivated") {
+      let img = null;
+      let refId = res.rows[0].id;
+      for (let i=0; i<data.imgs.length; i++) {
+        img = data.imgs[i];
+        img.refId = refId;
+        res = await upsertImage(img);
+      }
+    }
+    
+    return { status: 'success' }
+  } catch (error) {
+    return { status: 'failed', error: error }
+  }
+};
+
+export const upsertMenuItem = async (data) => {
+  // const client = await db.pool.connect();
+
+  // (1) save menu category data into db
+  try {
+    let res = null;
+    let actionTaken = null;
+    if (data.isActive === "false") {
+      //delete
+      res = await db.query(
+        "UPDATE public.menu_item SET is_active = $1, updated_on = NOW() WHERE id = $2 RETURNING id;",
+        [data.isActive, data.id]
+      );
+      actionTaken = "menu_item_deactivated";
+    } else if (data.isActive === "true") {
+      if (data.id) {
+        //edit
+        res = await db.query(
+          `UPDATE public.menu_item
+          SET 
+            category_id = COALESCE (NULLIF ($1, ''), category_id::varchar)::integer,
+            name = COALESCE (NULLIF ($2, ''), name),
+            description = COALESCE (NULLIF ($3, ''), description),
+            price = COALESCE (NULLIF ($4, ''), price::varchar)::integer,
+            quantity = COALESCE (NULLIF ($5, ''), quantity::varchar)::integer,
+            unit = COALESCE (NULLIF ($6, ''), unit),
+            updated_on = NOW()
+          WHERE 
+            id = $7 
+          RETURNING id;`,
+          [data.title, data.desc, data.id]
+        );
+        actionTaken = "menu_item_updated";
+      } else {
+        //insert
+        res = await db.query(
+          "INSERT INTO public.menu_item (category_id, name, description, price, quantity, unit, is_active) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id;",
+          [data.category_id, data.name, data.description, data.price, data.quantity, data.unit]
+        );
+        actionTaken = "menu_item_inserted";
+      }
+    }
+    console.log("res");
+    console.log(res);
+
+    // (2) save image data into db
+    if (actionTaken !== "menu_item_deactivated") {
       let img = null;
       let refId = res.rows[0].id;
       for (let i=0; i<data.imgs.length; i++) {
