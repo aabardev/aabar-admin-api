@@ -1,7 +1,7 @@
 import Hapi from "@hapi/hapi";
 import dotenv from "dotenv";
-import { getAuthorizationUrl, getNewTokens } from "./dbx/dbxHandlers.js";
-import { addNewMenuCategory } from "./handlers.js";
+import * as dbx from "./dbx/dbxHandlers.js";
+import * as handlers from "./handlers.js";
 
 dotenv.config();
 
@@ -35,23 +35,34 @@ const init = async () => {
       method: "GET",
       path: "/dbxGetAuthorizationUrl",
       handler: (req, h) => {
-        return getAuthorizationUrl();
+        return dbx.getAuthorizationUrl();
       },
     },
     {
       method: "POST",
       path: "/dbxGetNewTokens",
       handler: async (req, h) => {
-        const res = await getNewTokens(req.payload.authorization_code);
+        const res = await dbx.getNewTokens(req.payload.authorization_code);
         return res;
       },
     },
     {
       method: "POST",
-      path: "/addNewMenuCategory",
+      path: "/saveMenuCategory",
       config: {
         handler: async (req, h) => {
-          const res = await addNewMenuCategory(req.payload);
+          const res = await handlers.saveMenuCategory(req.payload);
+          return res;
+        },
+        payload: payloadConfig,
+      },
+    },
+    {
+      method: "POST",
+      path: "/editMenuCategory",
+      config: {
+        handler: async (req, h) => {
+          const res = await handlers.editMenuCategory(req.payload);
           return res;
         },
         payload: payloadConfig,

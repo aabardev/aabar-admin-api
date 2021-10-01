@@ -1,68 +1,46 @@
-import { uploadFileToDBX } from "./dbx/dbxHandlers.js";
-import { insertNewMenuCategory } from "./db/dbHandlers.js";
+import * as db from "./db/dbHandlers.js";
+import { imgTypeCodes } from "./utils.js";
 
-export const addNewMenuCategory = async (data) => {
+export const saveMenuCategory = async (data) => {
   console.log(data);
-
-  // (1) Enrich request data
-  // (2) Upload files/images to dbx
-  // (2.1) Upload the files/images
-  // (2.2) Get and modify shareable link
   let eData = { imgs: [] };
   let keySplit = null;
   let res = null;
-  let failedUpoads = [];
-  for (let key in data) {
-    keySplit = key.split("_"); // keySplit[0] = field type, keySplit[0]
-    switch (keySplit[0]) {
-      case "txt":
+
+  // (1) Validate and Prepare the data for upload and save
+  if (data.txt_isActive === 'false') {
+    eData.id = data.txt_id;
+    eData.isActive = data.txt_isActive;
+  } else {
+    for (let key in data) {
+      keySplit = key.split("_");
+      if (keySplit[0] === "txt") {
         eData[keySplit[1]] = data[key];
-        break;
-      case "img":
-        let imgProps = {
-          publicUrl: null,
-          dbxFilePath: null,
-          type: null,
-          isPrimary: null,
-        };
-        switch (keySplit[1]) {
-          case "p":
-            imgProps.type = "menu_category";
-            imgProps.isPrimary = true;
-            break;
-          case "pl":
-            imgProps.type = "menu_category_large";
-            imgProps.isPrimary = true;
-            break;
-          case "np":
-            imgProps.type = "menu_category";
-            imgProps.isPrimary = false;
-            break;
-          case "npl":
-            imgProps.type = "menu_category_large";
-            imgProps.isPrimary = false;
-            break;
-        }
-        res = await uploadFileToDBX(keySplit[2], data[key]);
-        if (res.status === "success") {
-          imgProps.dbxFilePath = res.dbxFilePath;
-          imgProps.publicUrl = res.publicUrl;
-          eData.imgs.push(imgProps);
-        } else {
-          failedUpoads.push(keySplit[2]);
-        }
-        break;
+      } else if (keySplit[0] === "img") {
+        // { img_id_typeCode_isPrimary_isActive_filename: content }
+        //eg: { img_4_mc_true_true_breakfast1: [Buffer type] }
+        eData.imgs.push({
+          id: keySplit[1] ? keySplit[1] : null,
+          refId: null,
+          type: imgTypeCodes[keySplit[2]],
+          url: null,
+          dbxPath: null,
+          isPrimary: keySplit[3],
+          isActive: keySplit[4],
+          filename: keySplit[5],
+          content: data[key],
+        });
+      }
     }
   }
-  console.log("eData");
+  
+  console.log('eData');
   console.log(eData);
-  console.log("failedUpoads");
-  console.log(failedUpoads);
 
-  // (3) Save enriched data to database
-  res = await insertNewMenuCategory(eData);
+  // (2) Save data to db
+  res = await db.upsertMenuCategory(eData);
   console.log("RES:", res);
-  if (res.status === "success") {
+  if (res.status === "success" ) {
     return { status: res.status, msg: "Menu Category saved successfully" };
   } else {
     return {

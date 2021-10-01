@@ -39,6 +39,7 @@ const getDayPostfix = (day) => {
       return "th";
   }
 };
+
 export const getDateOnly = (date) => {
   const dd = date.getDate();
   const mm = date.getMonth();
@@ -57,3 +58,11 @@ export const dateFormatForFilename = (date) => {
 
   return `${yyyy}${mm}${dd}${h}${m}${s}`;
 };
+
+export const imgTypeCodes = {
+  'mc': 'menu_category',
+  'mcl': 'menu_category_large',
+  'mi': 'menu_item',
+  'e': 'event',
+  'o': 'offer'
+}
