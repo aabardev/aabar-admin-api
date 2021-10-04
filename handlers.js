@@ -51,7 +51,7 @@ export const saveMenuCategory = async (data) => {
   }
 };
 
-const saveMenuItem = () => {
+export const saveMenuItem = async (data) => {
   console.log(data);
   let eData = { imgs: [] };
   let keySplit = null;

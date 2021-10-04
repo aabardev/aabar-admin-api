@@ -156,21 +156,21 @@ export const upsertMenuItem = async (data) => {
             category_id = COALESCE (NULLIF ($1, ''), category_id::varchar)::integer,
             name = COALESCE (NULLIF ($2, ''), name),
             description = COALESCE (NULLIF ($3, ''), description),
-            price = COALESCE (NULLIF ($4, ''), price::varchar)::integer,
-            quantity = COALESCE (NULLIF ($5, ''), quantity::varchar)::integer,
+            price = COALESCE (NULLIF ($4, ''), price::varchar)::numeric,
+            quantity = COALESCE (NULLIF ($5, ''), quantity::varchar)::numeric,
             unit = COALESCE (NULLIF ($6, ''), unit),
             updated_on = NOW()
           WHERE 
             id = $7 
           RETURNING id;`,
-          [data.title, data.desc, data.id]
+          [data.categoryId, data.name, data.description, data.price, data.quantity, data.unit, data.id]
         );
         actionTaken = "menu_item_updated";
       } else {
         //insert
         res = await db.query(
           "INSERT INTO public.menu_item (category_id, name, description, price, quantity, unit, is_active) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id;",
-          [data.category_id, data.name, data.description, data.price, data.quantity, data.unit]
+          [data.categoryId, data.name, data.description, data.price, data.quantity, data.unit]
         );
         actionTaken = "menu_item_inserted";
       }
